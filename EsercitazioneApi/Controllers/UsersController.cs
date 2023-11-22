@@ -3,21 +3,24 @@ using EsercitazioneApi.Entities;
 using EsercitazioneApi.Models;
 using EsercitazioneApi.Repositories;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
+using AutoMapper;
 
 namespace EsercitazioneApi.Controllers
 {
     [ApiController]
-    [Route("api/bankomat/users")]
+    [Route("[controller]")]
     public class UsersController : ControllerBase
     {
         private readonly IUsersRepository _repo;
         private readonly IDbRepository _dbrepo;
+        private readonly IMapper _mapper;
 
-        public UsersController(IUsersRepository repo, IDbRepository dbrepo)
+        public UsersController(IUsersRepository repo, IDbRepository dbrepo, IMapper mapper)
         {
             _repo = repo;
             _dbrepo = dbrepo;
-
+            _mapper = mapper;
         }
 
         [HttpGet]
@@ -26,17 +29,21 @@ namespace EsercitazioneApi.Controllers
         //    IEnumerable<User> users = _repo.GetUsers();
         //    return Ok(users);
         //}
-        public async Task<ActionResult<IEnumerable<Utenti>>> GetUsers()
+        public async Task<ActionResult<IEnumerable<UsersDto>>> GetUsers()
         {
             IEnumerable<Utenti> users = await _dbrepo.GetUsersAsync();
-            return Ok(users);
+            return Ok(_mapper.Map<IEnumerable<Utenti>, IEnumerable<UsersDto>>(users));
         }
 
         [HttpGet("{Id}", Name = nameof(GetUserById))]
-        public async Task<ActionResult<IEnumerable<Utenti>>> GetUserById(int Id)
+        public async Task<ActionResult<IEnumerable<UsersDto>>> GetUserById(int Id)
         {
-            var userToreturn = _dbrepo.GetUsersAsync().Result.ToList().FirstOrDefault(u => u.Id == Id);
-            return Ok(userToreturn);
+            var userToreturn = await _dbrepo.GetUserByIdAsync(Id);
+            if (userToreturn == null)
+            {
+                return NotFound();
+            }
+            return Ok(_mapper.Map<Utenti, UsersDto>(userToreturn));
         }
 
         //public ActionResult<User> GetUserById(int Id)
@@ -63,29 +70,27 @@ namespace EsercitazioneApi.Controllers
         //}
 
         [HttpPost]
-        public async Task<ActionResult> AddUser([FromBody] Utenti user)
+        public async Task<ActionResult> AddUser([FromBody] UtenteDtoToAdd user)
         {
             if (!ModelState.IsValid)
             {
-                return BadRequest();
+                return BadRequest("modello utente non valido");
             }
 
-            var UserId = _dbrepo.GetUsersAsync().Result.ToList().Max(u => u.Id);
-
-            var newUser = new Utenti(UserId, user.IdBanca, user.NomeUtente, user.Password)
+            //ricerca banca
+            var banca = await _dbrepo.GetBankAsync(user.IdBanca);
+            if (banca == null)
             {
-                ContiCorrentes = new List<ContiCorrente>()
-                {
-                    new ContiCorrente(user.ContiCorrentes.Max(c => c.Id), UserId)
-                    {
-                        Saldo = 0
-                    }
-                },
-                Banca = user.Banca,
-            };
+                return BadRequest("nessuna banca trovata");
+            }
 
-            await _dbrepo.CreateUserAsync(newUser);
-            return NoContent();
+            var userToReturn = await _dbrepo.CreateUserAsync(user);
+            return CreatedAtRoute(nameof(GetUserById),
+               routeValues: new
+               {
+                   Id = userToReturn.Id
+               },
+               user);
         }
         //public ActionResult CreateUser([FromBody] User user)
         //{
@@ -115,67 +120,76 @@ namespace EsercitazioneApi.Controllers
         //}
 
         [HttpPut]
-        public ActionResult UpdateUser([FromBody] User user)
+        public async Task<ActionResult> UpdateUser([FromBody] UtenteDtoToUpdate user, int UserId)
         {
             if (!ModelState.IsValid)
             {
-                return BadRequest();
+                return BadRequest("modello utente non valido");
             }
 
-            var userToReturn = _repo.GetUsers()
-                .FirstOrDefault(u => u.Id == user.Id);
+            var userToReturn = await _dbrepo.GetUserByIdAsync(UserId);
 
             if (userToReturn == null)
             {
                 return NotFound();
             }
 
-            userToReturn.IdBanca = user.IdBanca;
-            userToReturn.NomeUtente = user.NomeUtente;
-            userToReturn.Password = user.Password;
-            userToReturn.Bloccato = user.Bloccato;
+            var result = await _dbrepo.UpdateUserAsync(user, UserId);
 
-            _repo.UpdateUser(userToReturn);
+            //userToReturn.IdBanca = user.IdBanca;
+            //userToReturn.NomeUtente = user.NomeUtente;
+            //userToReturn.Password = user.Password;
+            //userToReturn.Bloccato = user.Bloccato;
 
-            return NoContent();
+            return CreatedAtRoute(nameof(GetUserById),
+               routeValues: new
+               {
+                   Id = userToReturn.Id
+               },
+               user);
+
+
         }
 
-        [HttpPut("{UserId:int}/newPassword/{password}")]
-        public ActionResult UpdatePasswordOfUser(string password, int UserId)
-        {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest();
-            }
+        //[HttpPut("{UserId:int}/newPassword/{password}")]
+        //public ActionResult UpdatePasswordOfUser(string password, int UserId)
+        //{
+        //    if (!ModelState.IsValid)
+        //    {
+        //        return BadRequest();
+        //    }
 
-            var userToReturn = _repo.GetUsers()
-                .FirstOrDefault(u => u.Id == UserId);
+        //    var userToReturn = _repo.GetUsers()
+        //        .FirstOrDefault(u => u.Id == UserId);
 
-            if (userToReturn == null)
-            {
-                return NotFound();
-            }
+        //    if (userToReturn == null)
+        //    {
+        //        return NotFound();
+        //    }
 
-            userToReturn.Password = password;
+        //    userToReturn.Password = password;
 
-            _repo.UpdateUser(userToReturn);
+        //    _repo.UpdateUser(userToReturn);
 
-            return NoContent();
-        }
+        //    return NoContent();
+        //}
 
         [HttpDelete("{UserId:int}")]
         public async Task<ActionResult> DeleteUser(int UserId)
         {
-            var userToDelete = _dbrepo.GetUsersAsync()
-                .Result.ToList().FirstOrDefault(u => u.Id == UserId);
-
+            var userToDelete = _dbrepo.GetUserByIdAsync(UserId);
             if (userToDelete == null)
             {
                 return NotFound();
             }
 
-            await _dbrepo.DeleteUserAsync(userToDelete.Id);
-            return NoContent();
+            var result = await _dbrepo.DeleteUserAsync(userToDelete.Id);
+            if(result == true)
+            {
+                return NoContent();
+            }
+
+            return BadRequest("Utente non cancellabile");
 
         }
         //public ActionResult DeleteUser(int UserId)

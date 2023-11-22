@@ -15,9 +15,9 @@ public partial class ContiCorrente
 
     public virtual Utenti IdUtenteNavigation { get; set; } = null!;
 
-    public ContiCorrente(long id, long idUtente)
-    {
-        Id = id;
-        IdUtente = idUtente;
-    }
+    //public ContiCorrente(long id, long idUtente)
+    //{
+    //    Id = id;
+    //    IdUtente = idUtente;
+    //}
 }

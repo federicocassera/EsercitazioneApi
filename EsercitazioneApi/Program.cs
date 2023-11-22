@@ -22,6 +22,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton<IUsersRepository, UsersRepository>();
 builder.Services.AddScoped<IDbRepository, DbRepository>();
 
+builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
 var app = builder.Build();
 
@@ -37,6 +38,8 @@ app.UseRouting();
 app.UseHttpsRedirection();
 
 app.UseAuthorization();
+
+app.UseCors(policy => policy.AllowAnyHeader().AllowAnyMethod().AllowAnyOrigin());
 
 app.UseEndpoints(endpoints =>
 {

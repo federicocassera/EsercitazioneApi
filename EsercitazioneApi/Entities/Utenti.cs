@@ -20,11 +20,11 @@ public partial class Utenti
 
     public virtual Banche Banca { get; set; } = null!;
 
-    public Utenti(long id, long idBanca, string nomeUtente, string password)
-    {
-        Id = id;
-        IdBanca = idBanca;
-        NomeUtente = nomeUtente;
-        Password = password;
-    }
+    //public Utenti(long id, long idBanca, string nomeUtente, string password)
+    //{
+    //    Id = id;
+    //    IdBanca = idBanca;
+    //    NomeUtente = nomeUtente;
+    //    Password = password;
+    //}
 }
